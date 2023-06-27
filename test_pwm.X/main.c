@@ -71,13 +71,11 @@ void main(void)
     //INTERRUPT_PeripheralInterruptDisable();
   
     PB_SetDigitalInput();
-    PWM4_Initialize();
-    //PWM4_LoadDutyValue(639);
-    //__delay_ms(5000);
-    //PWM4_LoadDutyValue(0);
+    PWM4_Initialize(); // Set at low percentage
     
-    uint8_t state = 0;
-    uint8_t rpm_state = 0;
+    uint8_t state = 0; // act as a lock for detecting the button edges
+    //uint8_t rpm_state = 0; // Used when only 2 speeds are used : low and high
+    uint8_t PWM_duty = 0; // Used when more than 2 speeds are used : Here, 4 values : 0, 33, 66 and 100% PWM
    
     while (1)
     {
@@ -86,36 +84,55 @@ void main(void)
             if (state == 0)
             {
                 state = 1;
-                rpm_state = !rpm_state;
-                
+                //rpm_state = !rpm_state;
+                PWM_duty += 1;
             }
         }
         else if (PB_GetValue() == 1)
             state = 0;
         __delay_ms(20);
+        // END of the button detection. Lock with the "state' variable, and count the position with PWM_duty
         
-        if (rpm_state == 1)
+//        if (rpm_state == 1)
+//        {
+//           SetPWMPercentage(100);
+//           //LED_RPM_SetHigh();
+//        }
+//        else
+//        {
+//            SetPWMPercentage(0);
+//            //LED_RPM_SetLow();
+//        }
+        if (PWM_duty > 3)
+            PWM_duty = 0;
+        
+        switch (PWM_duty)
         {
-           SetPWMPercentage(100);
-           LED_RPM_SetHigh();
+            case 0 : 
+                SetPWMPercentage(0); 
+                break;
+            case 1 :
+                SetPWMPercentage(33);
+                break;
+            case 2 : 
+                SetPWMPercentage(66);
+                break;
+            case 3 :
+                SetPWMPercentage(100);
+                break;
+            default :
+                PWM_duty = 0;              
         }
-        else
-        {
-            SetPWMPercentage(0);
-            LED_RPM_SetLow();
-        }
-            
+        // Send the right value to the PWM module with the PWM_duty as input
     }
-    // OK !
-    // Now handle button to swap from one speed to another
-/**
- End of File
-*/
 }
 
 void SetPWMPercentage(uint8_t value)
 {    
     uint16_t PWM_duty;
+    
+    if (value > 100)
+        value = 100;
     
     if (value < 25)
     {
@@ -142,5 +159,10 @@ void SetPWMPercentage(uint8_t value)
     PWM_duty += 12;
     PWM4_LoadDutyValue(PWM_duty);
     // 0% = 12
-    // 100% = 639
+    // 100% = 639 (Value are given by MCC) for 
+    // F = 25 KHz (40 us) --> recommended frequency for 4 pins PWM case fan
+    // Duty 0 - 100%
 }
+/**
+ End of File
+*/
